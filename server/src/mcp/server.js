@@ -37,7 +37,9 @@ function touchSession(sessionId) {
   if (!session) return;
   clearTimeout(session.timer);
   session.timer = setTimeout(() => {
-    session.transport.close().catch(() => {});
+    session.transport.close().catch(error => {
+      logger.error(`Error closing expired MCP session ${sessionId}`, error);
+    });
     sessions.delete(sessionId);
     logger.info(`MCP session ${sessionId} expired after inactivity`);
   }, SESSION_TTL_MS);
@@ -82,6 +84,20 @@ export function setupMcp(app) {
         sessionIdGenerator: () => randomUUID()
       });
 
+      // Wire up close cleanup before handling the initialize request, so a
+      // transport that closes during the handshake still gets cleaned up.
+      // The SDK transport exposes a single `onclose` setter, not addEventListener.
+      // eslint-disable-next-line unicorn/prefer-add-event-listener
+      transport.onclose = () => {
+        const sid = transport.sessionId;
+        if (!sid) return;
+        const session = sessions.get(sid);
+        if (session) {
+          clearTimeout(session.timer);
+          sessions.delete(sid);
+        }
+      };
+
       const server = createMcpServer();
       await server.connect(transport);
       await transport.handleRequest(request, response, request.body);
@@ -89,15 +105,13 @@ export function setupMcp(app) {
       if (transport.sessionId) {
         const sid = transport.sessionId;
         const timer = setTimeout(() => {
-          transport.close().catch(() => {});
+          transport.close().catch(error => {
+            logger.error(`Error closing expired MCP session ${sid}`, error);
+          });
           sessions.delete(sid);
           logger.info(`MCP session ${sid} expired after inactivity`);
         }, SESSION_TTL_MS);
         sessions.set(sid, { transport, timer });
-        transport.addEventListener('close', () => {
-          clearTimeout(sessions.get(sid)?.timer);
-          sessions.delete(sid);
-        });
       }
     } catch (error) {
       logger.error('MCP POST error', error);
@@ -135,7 +149,9 @@ export function setupMcp(app) {
     const session = sessions.get(sessionId);
     if (sessionId && session) {
       clearTimeout(session.timer);
-      session.transport.close().catch(() => {});
+      session.transport.close().catch(error => {
+        logger.error(`Error closing MCP session ${sessionId}`, error);
+      });
       sessions.delete(sessionId);
       return response.status(200).json({ terminated: true });
     }
