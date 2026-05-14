@@ -192,6 +192,17 @@ If you want to run the server and testrunner directly with Node.js (useful for d
 
     This file uses `POSTGRESQL_SERVER` (not `POSTGRESQL_HOST`) which is the correct variable name when running the server outside Docker. It also points all service hosts to `127.0.0.1`.
 
+    **PostgreSQL on the host (not Docker):** you must create the DB user and database to match `.env` (`POSTGRESQL_USER`, `POSTGRESQL_DB`, `POSTGRESQL_PASSWORD`), then load the schema. Use a superuser connection (`postgres`, or on Homebrew often your macOS username):
+
+    ```bash
+    # Pick a password and use the same value for POSTGRESQL_PASSWORD in .env
+    psql -d postgres -c "CREATE USER sitespeedio WITH PASSWORD 'YOUR_PASSWORD_HERE';"
+    psql -d postgres -c "CREATE DATABASE sitespeedio OWNER sitespeedio;"
+    psql -U sitespeedio -d sitespeedio -f server/database/setup/setup.sql
+    ```
+
+    If `CREATE USER` fails because the role already exists, skip that line and only ensure the database and `setup.sql` have been applied.
+
 2. **Start the dependencies with exposed ports:**
     ```bash
     docker compose -f docker-compose.dependencies.yml -f standalone/docker-compose.dependencies.standalone.yml up -d
@@ -207,6 +218,10 @@ If you want to run the server and testrunner directly with Node.js (useful for d
     ```bash
     npm install --prefix testrunner
     npm start --prefix testrunner
+    ```
+    If Redis/PostgreSQL/MinIO run in Docker as above, MinIO’s S3 port on the host is **9000** and the default config is correct. If you run **MinIO natively on 9100** (for example because **Zscaler** already listens on **9000**), use `testrunner/config/testrunner.local.yaml` via `--config config/testrunner.local.yaml` and matching `MINIO_PORT` / `RESULT_BASE_URL` in `.env` (see comments in `.env.example.local`):
+    ```bash
+    npm start --prefix testrunner -- --config config/testrunner.local.yaml
     ```
 
 You can also supply your own configuration files:

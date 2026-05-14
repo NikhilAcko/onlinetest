@@ -1,0 +1,42 @@
+# Same as testrunner.yaml but MinIO S3 API on 9100 (e.g. macOS with Zscaler using 9000).
+# With npm start --prefix testrunner, cwd is the testrunner package — use:
+#   --config config/testrunner.local.yaml
+location:
+  name: "default"
+  setup:
+    - name: "Desktop Browsers"
+      type: "desktop"
+      browsers: ["chrome", "firefox", "edge"]
+      connectivity: ["native", "3g", "4g", "cable"]
+      useDocker: false
+
+    - name: "Emulated Mobile"
+      type: "emulatedMobile"
+      browsers: ["chrome"]
+      connectivity: ["native", "3g", "4g", "cable"]
+      useDocker: false
+
+log:
+  verbose: false
+
+executable: "sitespeed.io"
+
+docker:
+  #container: "sitespeedio/sitespeed.io:37"
+  #extraparameters: "--cap-add=NET_ADMIN"
+  #baselinedir: "$(pwd)"
+
+queue:
+  removeOnComplete: 50
+  removeOnFail: 50
+
+sitespeed.io:
+  s3:
+    endpoint: "http://127.0.0.1:9100"
+    bucketname: "sitespeedio"
+    key: "minioadmin"
+    region: "motown"
+    options:
+      forcePathStyle: true
+
+  resultBaseURL: "http://127.0.0.1:9100/sitespeedio"
